@@ -1,0 +1,137 @@
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<script src="http://172.16.1.188:8080/socket.io/socket.io.js"></script>
+<script src="http://ajax.aspnetcdn.com/ajax/jQuery/jquery-1.8.3.min.js"></script>
+<style>
+input,button{ padding:4px}
+</style>
+</head>
+<body>
+
+<table cellpadding="10">
+	<tr valign="top">
+    	<td><h1>用户</h1>
+        	<div id="online"></div>
+        </td>
+    	<td><h1>数据</h1>
+        	<div id="json" style="width:360px; height:480px; overflow:hidden; border:solid 1px gray"></div>
+        </td>
+    	<!--<td><h1>会话内容</h1>
+        	<div id="dialogue"></div>
+        </td>-->
+    	<td><h1>控件</h1>
+        	名字：<select id="name" value=""></select><button id="connect">连接</button><!--<button id="disconnect">断开</button>--><br>
+            发给：<input id="to"><br>
+            <textarea style="height:180px; width:360px"></textarea><br>
+            <button id="send">发送</button>
+        </td>
+    </tr>
+</table>
+
+<script>
+   (function(){
+       var socket;// = io.connect('http://172.16.1.81:8080/');
+	   
+	   var users=['睿之','芝伊','银凤','胖猫猫','巩璞','小歪','包子','守野','康康','肇文','Bruce'];
+	   for (key in users){
+			$('#name').append('<option value="'+users[key]+'">'+users[key]+'</option>');
+		}
+	   
+	   //初始化按钮状态
+	   $('#disconnect,#send,textarea').prop("disabled", true);
+	   
+	   //点击“连接”连接socket
+	   $('#connect').click(function(){
+			socket = io.connect('http://172.16.1.188:8080/');
+			
+			var name=$('#name').val()==''?(new Date()).getTime().toString():$('#name').val();
+			$('#name').val(name);
+			
+			$('#connect,#name').prop("disabled", true);
+			$('#disconnect,#send,textarea').prop("disabled", false);
+			
+			//1 提交身份标示
+			var info={
+				us:'5f8fx8jiewOVMV5gdHPBZdw5N9IK7oX1eleKnpcrTtWk3ufu9GPTZCTT0rR7DgwgWcYxiVgOpCHwWo+Xlla9FRfufWXPVBrq',
+				name:$('#name').val(),
+				os:'android',
+				device:'f27e9533cd497dfd0a45cb7f18422f47'
+			};
+			socket.emit('authentication', info);
+
+			//在线用户列表
+		   socket.on("online", function (users) {
+			   $('#online').html('');
+			   $.each(users,function(index,value){
+					$('#online').append($('<div style="cursor:pointer; border-bottom:solid 1px gray; padding:6px 4px"></div>').text(value).click(function(){$('#to').val(value)}));
+				});
+		   });
+		   
+		   //显示收到的json数据
+		   socket.on('message',function(json){
+				console.log(JSON.stringify(json));
+				if('undefined' == typeof json.to && 'undefined' == typeof json.dialogue){
+					json.to=$('#name').val();
+				}
+				showMsg(json);
+			});
+		});
+	   
+	   //点击“断开”中断socket
+	   $('#disconnect').click(function(){
+			socket.disconnect();
+			socket=null;
+			
+			$('#online').text('已经断线');
+			
+			$('#connect,#name').prop("disabled", false);
+			$('#disconnect,#send,textarea').prop("disabled", true);
+		});
+
+	   //点击“发送”
+	   $('#send').click(function(){
+			var msg={from:$('#name').val(),
+				to:$('#to').val(),
+				text:$.trim($('textarea').val()),
+				nosendback:1
+			};
+			if($('#to').val()=='大家'){
+				delete msg.to;
+				msg.dialogue='大家';
+			}
+			
+			socket.json.send(msg);
+			//socket.send('hi boy');
+			msg.from=$('#name').val();
+			showMsg(msg,true);
+			$('textarea').val('');
+		});
+	   //发送事件快捷
+	   $('textarea').keypress(function(event){
+			if(event.which == 13){
+				$('#send').click();
+			}
+		});
+		
+		function showMsg(json,isMine){
+			if(json.dialogue){
+				from='<b>'+json.from+'</b> 说：<br>';
+			}else{
+				from='<b>'+json.from+'</b> 对 <b>'+json.to+'</b> 说：<br>';
+			}
+			msg=from+json.text;
+			
+			if(isMine){
+				$('#json').prepend($('<div style="font-size:12px; font-weight:bold; padding:4px; color:green"></div>').html(msg));
+			}else{
+				$('#json').prepend($('<div style="font-size:12px; padding:4px"></div>').html(msg));
+			}
+		}
+
+   })();
+   
+</script>
+
+</body>
+</html>
